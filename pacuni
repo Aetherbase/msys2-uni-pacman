@@ -1,0 +1,68 @@
+#!/usr/bin/bash
+caller=$0
+pkgpath=/usr/src/arch
+chifinst(){
+[  "$(echo $( pacman -Qs $1 | grep '/'$1' ') | wc -c)" -gt 3 ] && echo "already installed $1" && return 1
+[  "$(echo $( pacman -Qs $1 | grep '/mingw-w64-x86_64-'$1' ') | wc -c)" -gt 3 ] && echo "already installed $1" && return 1
+return 0
+}
+pacman_getit(){
+[  "$(echo $( pacman -Ss $1 | grep '/'$1' ') | wc -c)" -gt 3 ] && pacman -S $1 && exit
+[  "$(echo $( pacman -Ss $1 | grep '/mingw-w64-x86_64-'$1' ') | wc -c)" -gt 3 ] && pacman -S 'mingw-w64-x86_64-'$1 && exit
+return 1
+}
+get_repo() {
+    pkg="${1}"
+    cd /usr/src/arch/packages && [ -e $pkg'/trunk/PKGBUILD' ] && pkgpath=$(pwd)'/'$pkg'/trunk' && return 0
+    svn update $pkg && cd $pkg/trunk
+    if [ -e "PKGBUILD" ] ;
+    then
+    	echo "repopac"
+    	pkgpath=$(pwd)
+        return 0
+    else 
+    	cd /usr/src/arch/community && [ -e $pkg'/trunk/PKGBUILD' ] && pkgpath=$(pwd)'/'$pkg'/trunk' && return 0
+    	svn update $pkg && cd $pkg/trunk
+    	if [ -e "PKGBUILD" ] ;
+    	then
+    		echo "repocom"
+    		pkgpath=$(pwd)
+        	return 0
+        else
+        	cd /usr/src/arch && [ -e $pkg'/PKGBUILD' ] && pkgpath=$(pwd)'/'$pkg && return 0
+			wget "https://aur.archlinux.org/cgit/aur.git/snapshot/${pkg}.tar.gz"  || die "Failed to download"
+			tar -xzf "${pkg}.tar.gz" || die "Failed to extract archive"
+			rm -f "${pkg}.tar.gz"
+			echo "Checked out latest ${pkg} to `pwd`/${pkg}"
+			cd ${pkg}
+			if [ -e "PKGBUILD" ] ;
+    		then
+    			echo "aur"
+    			pkgpath=$(pwd)
+        		return 0
+        	else
+        		echo "sorry"
+				return 1
+			fi
+        fi
+    fi
+}
+install_package(){
+	pacman_getit $1 || get_repo $1 && cd $pkgpath && echo $(pwd)
+	echo 
+	read -p "edit pkgbuild? (n for no)" c
+	if [ "$c" != "n" ] ;
+	then
+		nano PKGBUILD
+	fi
+	unset makedepends depends
+	source PKGBUILD
+	$caller "${makedepends[@]}"
+	$caller "${depends[@]}"
+	makepkg -Asi && mv "${1}"*tar.xz /var/cache/pacman/pkg/
+
+}
+for pkg in "$@";
+do
+    chifinst "${pkg}" && install_package "${pkg}"
+done

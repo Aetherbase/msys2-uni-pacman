@@ -9,7 +9,6 @@ copying makepkg.conf is optional. It contains various options to optimize buildi
 ```
 chmod 755 pacuni && cp pacuni /usr/bin && mkdir -p /usr/src/arch
 mv /etc/makepkg.conf /etc/makepkg.conf.bak && cp makepkg.conf /etc/ #ONLY for MSYS2
-cd 
 ```
 ## Usage 
 For now it just supports installation
